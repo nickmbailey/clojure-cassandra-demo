@@ -1,11 +1,11 @@
 (ns clojure-cassandra-demo.core
   (require [clojure-cassandra-demo.db :refer :all]
+           [clojure-cassandra-demo.util :refer [load-tracks to-long]]
            [compojure.core :refer [defroutes ANY GET POST]]
            [compojure.handler :refer [site]]
            [compojure.route :refer [resources]]
            [me.raynes.least :as least]
            [ring.adapter.jetty :as jetty]
-           [ring.middleware.json :refer [wrap-json-response]]
            [ring.middleware.reload :refer [wrap-reload]]
            [ring.util.response :refer [redirect]]
            [clojure.tools.logging :as log]
@@ -16,54 +16,23 @@
            [clj-time.format :as f])
   (:gen-class))
 
-(def api-key (atom "7098d67eb72a0bebbb470b07a6eb4493"))
-
-(defn to-long [x]
-  (Long/parseLong x))
-
-(defn fetch-from-lastfm [username page]
-  (let [result (least/read
-                 "user.getRecentTracks"
-                 @api-key
-                 {:limit 200 :user username :extended 1 :page page})]
-    (if (contains? result :error)
-      (throw (Exception. (:message result)))
-      result)))
-
-(defn load-tracks [username]
-  (log/info "Loading tracks for " username)
-  (try
-    (loop [page 1]
-      (let [result (fetch-from-lastfm username page)
-            attr (:attr (:recenttracks result))
-            current-page (to-long (:page attr))
-            total-pages (to-long (:totalPages attr))]
-        (log/info "Page" current-page "out of" total-pages)
-        (doseq [track (:track (:recenttracks result))]
-          (let [played-at (* 1000 (to-long (:uts (:date track)))) ; convert to milliseconds
-                song (:name track)
-                artist (:name (:artist track))
-                album (:text (:album track))]
-            (track-played username played-at song artist album)))
-        (when-not (or (= page total-pages) (= page 10))
-          (recur (inc page)))))
-    (catch Exception e
-      (log/error e "Problem loading user history for" username))))
-
 (defn layout [& content]
   (html
-      [:head
-           [:meta {:http-equiv "Content-type"
-                        :content "text/html; charset=utf-8"}]
-           [:title "Clojure Cassandra Demo"]]
-      [:body
-        [:center
-          [:h2 "Clojure Cassandra Demo"]
-          content]]))
+    [:head
+      [:meta {:http-equiv "Content-type"
+              :content "text/html; charset=utf-8"}]
+      [:title "Clojure Cassandra Demo"]]
+    [:body
+      [:center
+        [:h2 "Clojure Cassandra Demo"]
+        content]]))
 
 (defn home-content[]
   (layout
-    [:h3 "Welcome"]))
+    [:h3 "Welcome"]
+    [:a {:href "/load"} "Load User History from Last.fm"] [:br] [:br]
+    [:a {:href "/user/nickmbailey"} "View User: nickmbailey"] [:br] [:br]
+    [:a {:href "/artist/Tokyo Police Club"} "View Artist: Tokyo Police Club"]))
 
 (defn load-lastfm-content []
   (layout
@@ -105,11 +74,11 @@
     [:h3 (str "Artist: " artist)]
     [:h4 "Popular Songs"]
     [:table {:id "popular-song-list"}
-     [:tr [:td "Song"] [:td "Album"] [:td "Play Count"]]
+     [:tr [:td [:u "Song"]] [:td [:u "Album"]] [:td [:u "Play Count"]]]
      (map popular-track-content (get-artist-popular-songs artist year-and-week))]
     [:h4 "Users Listening"]
     [:table {:id "artist-song-list"}
-     [:tr [:td "User"] [:td "Song"] [:td "Album"] [:td "Played"]]
+     [:tr [:td [:u "User"]] [:td [:u "Song"]] [:td [:u "Album"]] [:td [:u "Played"]]]
      (map artist-track-list-content (get-artist-history artist year-and-week))]))
 
 (defn user-content [username year month]
@@ -117,17 +86,17 @@
     [:h3 (str "User: " username)]
     [:h4 "Favorite Songs"]
     [:table {:id "favorite-song-list"}
-     [:tr [:td "Artist"] [:td "Song"] [:td "Play Count"]]
+     [:tr [:td [:u "Artist"]] [:td [:u "Song"]] [:td [:u "Play Count"]]]
      (map favorite-track-content (get-user-favorite-songs username year month))]
     [:h4 "Listened Songs"]
     [:table {:id "played-song-list"}
-     [:tr [:td "Artist"] [:td "Song"] [:td "Album"] [:td "Played"]]
+     [:tr [:td [:u "Artist"]] [:td [:u "Song"]] [:td [:u "Album"]] [:td [:u "Played"]]]
      (map user-track-list-content (get-user-history username year month))]))
 
 (defroutes app-routes
   (POST "/api/load-tracks" request
-    {:status 200
-     :body (load-tracks (:username (:params request)))})
+    (load-tracks (:username (:params request)))
+    (redirect "/"))
 
   (GET "/load" [username]
     (load-lastfm-content))
@@ -163,4 +132,4 @@
 (def app (site (var handler)))
 
 (defn startup []
-    (init-db))
+  (init-db))
