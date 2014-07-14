@@ -4,20 +4,16 @@ A basic last.fm clone to demonstrate using Apache Cassandra with Clojure.
 
 ## Installation
 
-Download from http://example.com/FIXME.
-
-## Usage
-
  * First you need to install CCM
   * https://github.com/pcmanus/ccm
  * You'll also need a last.fm api key
   * http://www.last.fm/api
 
+## Usage
+
  1. Start a 3 node CCM cluster (see ccm docs)
- 1. Run
-    > export LASTFM_API_KEY="<your api key"
- 1. run
-    > lein ring server
+ 1. export LASTFM_API_KEY="<your api key"
+ 1. lein ring server
 
 ### Things that could be improved
 
