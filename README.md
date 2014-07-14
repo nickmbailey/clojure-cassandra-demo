@@ -12,7 +12,7 @@ A basic last.fm clone to demonstrate using Apache Cassandra with Clojure.
 ## Usage
 
  1. Start a 3 node CCM cluster (see ccm docs)
- 1. export LASTFM_API_KEY="<your api key"
+ 1. export LASTFM_API_KEY="<your api key>"
  1. lein ring server
 
 ### Things that could be improved
