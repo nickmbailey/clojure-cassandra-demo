@@ -73,66 +73,70 @@
     (with {:clustering-order [[:played_at :desc]]})))
 
 (defn insert-user-history [username played-at song artist album year-and-month]
-  (insert :user_history
-    (values
-      :username username
-      :year_and_month year-and-month
-      :played_at played-at
-      :song song
-      :artist artist
-      :album album)))
+  (alia/execute-async session
+    (insert :user_history
+      (values
+        :username username
+        :year_and_month year-and-month
+        :played_at played-at
+        :song song
+        :artist artist
+        :album album))))
 
 (defn insert-user-song-counts [username played-at song artist album year-and-month]
-  (update :user_song_counts
-    (set-columns
-      {:count [+ 1]})
-    (where [[= :username username]
-            [= :artist artist]
-            [= :song song]
-            [= :year_and_month year-and-month]])))
+  (alia/execute-async session
+    (update :user_song_counts
+      (set-columns
+        {:count [+ 1]})
+      (where [[= :username username]
+              [= :artist artist]
+              [= :song song]
+              [= :year_and_month year-and-month]]))))
 
 (defn insert-artist-song-counts [username played-at song artist album year-and-week]
-  (update :artist_song_counts
-    (set-columns
-      {:count [+ 1]})
-    (where [[= :artist artist]
-            [= :album album]
-            [= :song song]
-            [= :year_and_week year-and-week]])))
+  (alia/execute-async session
+    (update :artist_song_counts
+      (set-columns
+        {:count [+ 1]})
+      (where [[= :artist artist]
+              [= :album album]
+              [= :song song]
+              [= :year_and_week year-and-week]]))))
 
 (defn insert-song-history [username played-at song artist album year-and-week]
-  (insert :song_history
-    (values
-      :song song
-      :year_and_week year-and-week
-      :played_at played-at
-      :username username
-      :artist artist
-      :album album)))
+  (alia/execute-async session
+    (insert :song_history
+      (values
+        :song song
+        :year_and_week year-and-week
+        :played_at played-at
+        :username username
+        :artist artist
+        :album album))))
 
 (defn insert-artist-history [username played-at song artist album year-and-week]
-  (insert :artist_history
-    (values
-      :artist artist
-      :year_and_week year-and-week
-      :played_at played-at
-      :username username
-      :song song
-      :album album)))
+  (alia/execute-async session
+    (insert :artist_history
+      (values
+        :artist artist
+        :year_and_week year-and-week
+        :played_at played-at
+        :username username
+        :song song
+        :album album))))
 
 (defn track-played [username played-at song artist album]
   (alia/execute session (use-keyspace :clojure_cassandra_demo))
   (let [played-at-datetime (c/from-long played-at)
         year-and-month (f/unparse (f/formatters :year-month) played-at-datetime)
-        year-and-week (f/unparse (f/formatters :weekyear-week) played-at-datetime)]
-    (alia/execute
-      session
-      (batch
-        (insert-user-history username played-at song artist album year-and-month)
-        (insert-artist-history username played-at song artist album year-and-week)
-        (insert-song-history username played-at song artist album year-and-week)
-        (insert-user-song-counts username played-at song artist album year-and-month)
-        (insert-artist-song-counts username played-at song artist album year-and-week)))))
+        year-and-week (f/unparse (f/formatters :weekyear-week) played-at-datetime)
+        promises [(insert-user-history username played-at song artist album year-and-month)
+                  (insert-artist-history username played-at song artist album year-and-week)
+                  (insert-song-history username played-at song artist album year-and-week)
+                  (insert-user-song-counts username played-at song artist album year-and-month)
+                  (insert-artist-song-counts username played-at song artist album year-and-week)]]
+    (doseq [p promises]
+      @p)))
 
 (defn get-artist-popular-songs [artist year-and-week]
   (alia/execute session (use-keyspace :clojure_cassandra_demo))
